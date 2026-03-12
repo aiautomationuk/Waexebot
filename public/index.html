@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spanish Teacher — Learn Spanish on WhatsApp</title>
+  <meta name="description" content="Learn Spanish through natural WhatsApp conversations with your AI tutor. Personalised lessons, available 24/7."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --red:    #C0392B;
+      --gold:   #F0A500;
+      --cream:  #FDF6EC;
+      --dark:   #1A0A00;
+      --mid:    #5C3317;
+      --light:  #FAF0E0;
+      --wa:     #25D366;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--dark); overflow-x: hidden; }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 6%; background: rgba(26,10,0,.92);
+      backdrop-filter: blur(10px);
+    }
+    .logo { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--gold); letter-spacing: 1px; }
+    .logo span { color: #fff; }
+    nav a.cta-nav {
+      background: var(--gold); color: var(--dark); font-weight: 600;
+      padding: 10px 24px; border-radius: 50px; text-decoration: none;
+      font-size: 14px; transition: transform .2s, box-shadow .2s;
+    }
+    nav a.cta-nav:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(240,165,0,.4); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      background: var(--dark);
+      display: flex; align-items: center;
+      padding: 120px 6% 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '🇪🇸';
+      position: absolute; right: -40px; top: 50%; transform: translateY(-50%);
+      font-size: clamp(280px, 40vw, 520px); opacity: .06; line-height: 1;
+      pointer-events: none;
+    }
+    .hero-inner { max-width: 660px; position: relative; z-index: 2; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(240,165,0,.15); border: 1px solid rgba(240,165,0,.3);
+      color: var(--gold); font-size: 13px; font-weight: 600;
+      padding: 6px 16px; border-radius: 50px; margin-bottom: 28px;
+      letter-spacing: .5px;
+    }
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(42px, 6vw, 76px);
+      line-height: 1.08; color: #fff; margin-bottom: 24px;
+    }
+    .hero h1 em { color: var(--gold); font-style: normal; }
+    .hero p {
+      font-size: 18px; color: rgba(255,255,255,.7);
+      line-height: 1.7; margin-bottom: 40px; max-width: 520px;
+    }
+    .hero-ctas { display: flex; flex-wrap: wrap; gap: 14px; }
+    .btn-primary {
+      background: var(--gold); color: var(--dark);
+      font-weight: 700; font-size: 16px;
+      padding: 16px 36px; border-radius: 50px;
+      text-decoration: none; transition: transform .2s, box-shadow .2s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(240,165,0,.45); }
+    .btn-ghost {
+      background: transparent; color: #fff;
+      border: 1px solid rgba(255,255,255,.25);
+      font-size: 15px; padding: 16px 30px; border-radius: 50px;
+      text-decoration: none; transition: border-color .2s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,.6); }
+    .hero-stats {
+      display: flex; flex-wrap: wrap; gap: 32px; margin-top: 56px;
+      border-top: 1px solid rgba(255,255,255,.08); padding-top: 36px;
+    }
+    .stat-num { font-family: 'Playfair Display', serif; font-size: 34px; color: var(--gold); }
+    .stat-label { font-size: 13px; color: rgba(255,255,255,.5); margin-top: 2px; }
+
+    /* ── HOW IT WORKS ── */
+    .section { padding: 100px 6%; }
+    .section-label {
+      font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--red); margin-bottom: 14px;
+    }
+    .section h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(32px, 4vw, 52px); line-height: 1.15; margin-bottom: 16px;
+    }
+    .section .sub { font-size: 17px; color: var(--mid); max-width: 520px; line-height: 1.7; }
+
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-top: 60px; }
+    .step {
+      background: #fff; border-radius: 20px; padding: 36px 28px;
+      box-shadow: 0 2px 24px rgba(0,0,0,.06); position: relative;
+      transition: transform .25s, box-shadow .25s;
+    }
+    .step:hover { transform: translateY(-6px); box-shadow: 0 12px 36px rgba(0,0,0,.1); }
+    .step-num {
+      width: 48px; height: 48px; border-radius: 14px;
+      background: var(--red); color: #fff;
+      font-family: 'Playfair Display', serif; font-size: 22px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+    }
+    .step h3 { font-size: 18px; margin-bottom: 10px; }
+    .step p { font-size: 14px; color: var(--mid); line-height: 1.6; }
+
+    /* ── CHAT MOCKUP ── */
+    .demo-section {
+      background: var(--dark); padding: 100px 6%;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 60px;
+    }
+    .demo-text { flex: 1; min-width: 280px; }
+    .demo-text .section-label { color: var(--gold); }
+    .demo-text h2 { color: #fff; }
+    .demo-text .sub { color: rgba(255,255,255,.6); }
+    .chat-window {
+      flex: 1; min-width: 300px; max-width: 380px;
+      background: #ECE5DD; border-radius: 24px; overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    }
+    .chat-header {
+      background: #075E54; padding: 16px 20px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .chat-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--gold); display: flex; align-items: center;
+      justify-content: center; font-size: 22px;
+    }
+    .chat-name { color: #fff; font-weight: 600; font-size: 15px; }
+    .chat-status { color: rgba(255,255,255,.7); font-size: 12px; }
+    .chat-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .bubble {
+      padding: 10px 14px; border-radius: 16px;
+      font-size: 13.5px; line-height: 1.55; max-width: 85%; position: relative;
+    }
+    .bubble.bot {
+      background: #fff; border-bottom-left-radius: 4px;
+      align-self: flex-start; color: #1a1a1a;
+    }
+    .bubble.user {
+      background: #DCF8C6; border-bottom-right-radius: 4px;
+      align-self: flex-end; color: #1a1a1a;
+    }
+    .bubble-time { font-size: 10px; color: #999; text-align: right; margin-top: 3px; }
+
+    /* ── FEATURES ── */
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-top: 60px; }
+    .feature {
+      background: #fff; border-radius: 20px; padding: 32px;
+      border: 1px solid rgba(0,0,0,.05);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .feature:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+    .feature-icon { font-size: 36px; margin-bottom: 16px; }
+    .feature h3 { font-size: 17px; margin-bottom: 8px; }
+    .feature p { font-size: 14px; color: var(--mid); line-height: 1.6; }
+
+    /* ── PRICING ── */
+    .pricing-section { background: var(--light); padding: 100px 6%; text-align: center; }
+    .pricing-section h2 { font-family: 'Playfair Display', serif; font-size: clamp(32px,4vw,52px); margin-bottom: 14px; }
+    .pricing-section .sub { color: var(--mid); font-size: 17px; max-width: 480px; margin: 0 auto 60px; }
+    .plans { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+    .plan {
+      background: #fff; border-radius: 24px; padding: 40px 36px;
+      width: 300px; text-align: left;
+      border: 2px solid transparent;
+      box-shadow: 0 4px 24px rgba(0,0,0,.06);
+      transition: transform .25s;
+    }
+    .plan:hover { transform: translateY(-6px); }
+    .plan.featured { border-color: var(--gold); background: var(--dark); color: #fff; }
+    .plan-name { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--red); margin-bottom: 20px; }
+    .plan.featured .plan-name { color: var(--gold); }
+    .plan-price { font-family: 'Playfair Display', serif; font-size: 52px; line-height: 1; margin-bottom: 6px; }
+    .plan-period { font-size: 14px; color: var(--mid); margin-bottom: 28px; }
+    .plan.featured .plan-period { color: rgba(255,255,255,.5); }
+    .plan ul { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+    .plan ul li { font-size: 14px; display: flex; align-items: center; gap: 10px; }
+    .plan ul li::before { content: '✓'; color: var(--wa); font-weight: 700; }
+    .plan.featured ul li { color: rgba(255,255,255,.85); }
+    .btn-plan {
+      display: block; text-align: center; padding: 14px;
+      border-radius: 50px; font-weight: 700; font-size: 15px;
+      text-decoration: none; transition: transform .2s, box-shadow .2s;
+      background: var(--gold); color: var(--dark);
+    }
+    .btn-plan:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(240,165,0,.4); }
+    .plan:not(.featured) .btn-plan { background: var(--dark); color: #fff; }
+
+    /* ── TESTIMONIALS ── */
+    .testimonials { padding: 100px 6%; }
+    .testimonials h2 { font-family: 'Playfair Display', serif; font-size: clamp(30px,4vw,48px); margin-bottom: 50px; }
+    .testi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+    .testi {
+      background: #fff; border-radius: 20px; padding: 28px;
+      border-left: 4px solid var(--gold);
+      box-shadow: 0 2px 16px rgba(0,0,0,.05);
+    }
+    .testi p { font-size: 15px; line-height: 1.7; color: var(--mid); margin-bottom: 20px; font-style: italic; }
+    .testi-author { font-weight: 700; font-size: 14px; }
+    .testi-flag { font-size: 20px; }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      background: var(--red); padding: 80px 6%; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .cta-banner::before {
+      content: 'HOLA'; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      font-family: 'Playfair Display', serif; font-size: clamp(100px,20vw,260px);
+      font-weight: 900; color: rgba(255,255,255,.05); white-space: nowrap; pointer-events: none;
+    }
+    .cta-banner h2 { font-family: 'Playfair Display', serif; font-size: clamp(28px,4vw,52px); color: #fff; margin-bottom: 16px; position: relative; }
+    .cta-banner p { color: rgba(255,255,255,.8); font-size: 17px; margin-bottom: 36px; position: relative; }
+    .cta-banner .btn-primary { background: #fff; color: var(--red); position: relative; }
+    .cta-banner .btn-primary:hover { box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--dark); color: rgba(255,255,255,.4);
+      padding: 40px 6%; display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: space-between; gap: 16px;
+      font-size: 13px;
+    }
+    footer .logo { font-size: 18px; }
+    footer a { color: rgba(255,255,255,.4); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .hero { padding: 100px 5% 60px; }
+      .section { padding: 70px 5%; }
+      .demo-section { padding: 70px 5%; }
+      .hero-stats { gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Spanish<span>Teacher</span></div>
+  <a href="#pricing" class="cta-nav">Start Learning →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="badge">🇪🇸 &nbsp;AI-Powered Spanish Tutor on WhatsApp</div>
+    <h1>Learn Spanish<br/>through <em>real</em><br/>conversation</h1>
+    <p>Your personal AI Spanish teacher is available 24/7 on WhatsApp. Lessons adapt to your level, your language, and your pace — no apps, no schedules.</p>
+    <div class="hero-ctas">
+      <a href="#pricing" class="btn-primary">📱 Start for Free</a>
+      <a href="#how" class="btn-ghost">See how it works</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="stat-num">24/7</div>
+        <div class="stat-label">Always available</div>
+      </div>
+      <div>
+        <div class="stat-num">5 min</div>
+        <div class="stat-label">Lessons via WhatsApp</div>
+      </div>
+      <div>
+        <div class="stat-num">Any</div>
+        <div class="stat-label">Native language supported</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="section-label">How it works</div>
+  <h2>Start speaking Spanish<br/>in minutes</h2>
+  <p class="sub">No downloads, no logins. Just open WhatsApp and say hello.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Subscribe</h3>
+      <p>Pick a plan and subscribe in seconds. You'll get a WhatsApp number to message straight away.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Get assessed</h3>
+      <p>Señor Bot asks a few questions to find your level and native language — no pressure, no tests.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Learn naturally</h3>
+      <p>Chat whenever you like. Lessons are short, bilingual and tailored to exactly where you are.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <h3>Make progress</h3>
+      <p>Señor Bot remembers every conversation and builds on what you've already learned.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CHAT DEMO -->
+<section class="demo-section">
+  <div class="demo-text">
+    <div class="section-label">Real conversations</div>
+    <h2>Lessons that feel<br/>like texting a friend</h2>
+    <p class="sub" style="margin-top:16px">Short messages, instant replies, bilingual explanations — lessons that fit into your day, not the other way around.</p>
+  </div>
+  <div class="chat-window">
+    <div class="chat-header">
+      <div class="chat-avatar">🎓</div>
+      <div>
+        <div class="chat-name">Señor Bot</div>
+        <div class="chat-status">online</div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="bubble bot">
+        👋 Hola! I'm Señor Bot, your personal Spanish teacher! What's your name?
+        <div class="bubble-time">09:01</div>
+      </div>
+      <div class="bubble user">
+        Hi! I'm James
+        <div class="bubble-time">09:02</div>
+      </div>
+      <div class="bubble bot">
+        Nice to meet you James! 😊 What language do you speak natively?
+        <div class="bubble-time">09:02</div>
+      </div>
+      <div class="bubble user">
+        English
+        <div class="bubble-time">09:02</div>
+      </div>
+      <div class="bubble bot">
+        Perfect! Today's word is <strong>llevar</strong> — it means "to carry" or "to wear" 🎒<br/><br/>🇬🇧 I wear a hat every day.<br/>🇪🇸 <em>Llevo un sombrero todos los días.</em><br/><br/>Can you try using llevar in your own sentence? 🌟
+        <div class="bubble-time">09:03</div>
+      </div>
+      <div class="bubble user">
+        Llevo mi mochila a la escuela?
+        <div class="bubble-time">09:04</div>
+      </div>
+      <div class="bubble bot">
+        ¡Perfecto! 🎉 That's exactly right James! I carry my backpack to school. You're a natural 🌟
+        <div class="bubble-time">09:04</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section">
+  <div class="section-label">Features</div>
+  <h2>Everything you need<br/>to learn Spanish</h2>
+  <div class="features-grid">
+    <div class="feature">
+      <div class="feature-icon">🧠</div>
+      <h3>Remembers everything</h3>
+      <p>Señor Bot recalls every word you've learned and every conversation you've had — no repetition, just progress.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🌍</div>
+      <h3>Any native language</h3>
+      <p>Whether you speak English, French, Arabic or Mandarin — lessons are always bilingual in your language.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📊</div>
+      <h3>Adapts to your level</h3>
+      <p>Assessed on first contact. Beginner, intermediate or advanced — lessons are tailored from day one.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Instant replies</h3>
+      <p>No waiting. Message at 2am or 2pm — Señor Bot is always there, always ready to teach.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📱</div>
+      <h3>Just WhatsApp</h3>
+      <p>No app to download, no account to create. Use the app that's already on your phone.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🎯</div>
+      <h3>Real vocabulary</h3>
+      <p>Conversational Spanish you'll actually use — not textbook phrases nobody says in real life.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <div class="section-label" style="color:var(--red)">Pricing</div>
+  <h2>Simple, honest pricing</h2>
+  <p class="sub">Start free for 7 days. Cancel any time. No hidden fees.</p>
+  <div class="plans">
+    <div class="plan">
+      <div class="plan-name">Monthly</div>
+      <div class="plan-price">£9<span style="font-size:24px">.99</span></div>
+      <div class="plan-period">per month</div>
+      <ul>
+        <li>Unlimited WhatsApp lessons</li>
+        <li>Bilingual teaching</li>
+        <li>Level assessment</li>
+        <li>Full conversation memory</li>
+        <li>7-day free trial</li>
+      </ul>
+      <a href="#" class="btn-plan">Start free trial</a>
+    </div>
+    <div class="plan featured">
+      <div class="plan-name">Annual — Best Value</div>
+      <div class="plan-price">£6<span style="font-size:24px">.99</span></div>
+      <div class="plan-period">per month, billed yearly</div>
+      <ul>
+        <li>Everything in Monthly</li>
+        <li>Save 30% vs monthly</li>
+        <li>Priority responses</li>
+        <li>Extended memory</li>
+        <li>7-day free trial</li>
+      </ul>
+      <a href="#" class="btn-plan">Start free trial</a>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials">
+  <h2>What learners say 💬</h2>
+  <div class="testi-grid">
+    <div class="testi">
+      <p>"I've tried Duolingo, apps, classes — nothing stuck. With Señor Bot I actually use Spanish every morning over coffee. It just feels natural."</p>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="testi-flag">🇬🇧</div>
+        <div class="testi-author">James, London</div>
+      </div>
+    </div>
+    <div class="testi">
+      <p>"The bilingual messages are genius. I can see my language and Spanish side by side so I always understand exactly what's going on."</p>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="testi-flag">🇫🇷</div>
+        <div class="testi-author">Camille, Paris</div>
+      </div>
+    </div>
+    <div class="testi">
+      <p>"It remembered a word I learned three weeks ago and quizzed me on it. I was amazed. It's like having a teacher who never forgets anything."</p>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="testi-flag">🇩🇪</div>
+        <div class="testi-author">Markus, Berlin</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section class="cta-banner">
+  <h2>Ready to start your<br/>Spanish journey?</h2>
+  <p>Join thousands of learners. Your first 7 days are completely free.</p>
+  <a href="#pricing" class="btn-primary">📱 &nbsp;Start Learning on WhatsApp</a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="logo">Spanish<span style="color:#fff">Teacher</span></div>
+  <div>© 2026 SpanishTeacher.com — All rights reserved</div>
+  <div style="display:flex;gap:20px">
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
+
+</body>
+</html>

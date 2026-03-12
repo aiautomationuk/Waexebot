@@ -73,6 +73,9 @@ for (const acc of accounts) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve landing page at /site (keeps the bot dashboard at /)
+app.use('/site', express.static(path.join(__dirname, 'public')));
+
 app.get('/', (_, res) => {
   const states = Object.values(global.botAccounts);
   const cards = states.map(acc => {
