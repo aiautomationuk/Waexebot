@@ -2,45 +2,52 @@ const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
-const THREADS_FILE = path.join(DATA_DIR, 'threads.json');
-
-let _client = null;
-
-function client() {
-  if (!_client) {
-    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Cache OpenAI clients by API key so we don't recreate them on every message
+const clientCache = new Map();
+function getClient(apiKey) {
+  if (!clientCache.has(apiKey)) {
+    clientCache.set(apiKey, new OpenAI({ apiKey }));
   }
-  return _client;
+  return clientCache.get(apiKey);
+}
+
+function threadsFile() {
+  const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
+  return path.join(DATA_DIR, 'threads.json');
 }
 
 function loadThreads() {
   try {
-    if (fs.existsSync(THREADS_FILE)) {
-      return JSON.parse(fs.readFileSync(THREADS_FILE, 'utf8'));
-    }
+    const f = threadsFile();
+    if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f, 'utf8'));
   } catch {}
   return {};
 }
 
 function saveThreads(threads) {
-  fs.mkdirSync(path.dirname(THREADS_FILE), { recursive: true });
-  fs.writeFileSync(THREADS_FILE, JSON.stringify(threads, null, 2));
+  const f = threadsFile();
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, JSON.stringify(threads, null, 2));
 }
 
-async function getReply(contactId, userMessage) {
-  const ai = client();
-  const assistantId = process.env.ASSISTANT_ID;
+// contactId  — WhatsApp JID (e.g. 447911123456@s.whatsapp.net)
+// accountId  — which bot account (used to namespace threads so two accounts don't share threads)
+// userMessage — the text to send
+// assistantId — which OpenAI Assistant to use
+// apiKey      — OpenAI API key for this account
+async function getReply({ contactId, accountId, userMessage, assistantId, apiKey }) {
+  const ai = getClient(apiKey);
+  const threadKey = `${accountId}:${contactId}`;
 
   const threads = loadThreads();
-  let threadId = threads[contactId];
+  let threadId = threads[threadKey];
 
   if (!threadId) {
     const thread = await ai.beta.threads.create();
     threadId = thread.id;
-    threads[contactId] = threadId;
+    threads[threadKey] = threadId;
     saveThreads(threads);
-    console.log(`[Assistant] New thread ${threadId} for ${contactId}`);
+    console.log(`[Assistant] New thread ${threadId} for ${threadKey}`);
   }
 
   await ai.beta.threads.messages.create(threadId, {

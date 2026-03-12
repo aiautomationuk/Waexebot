@@ -10,14 +10,15 @@ const qrcode = require('qrcode-terminal');
 const path = require('path');
 const { getReply } = require('./assistant');
 
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
-const AUTH_DIR = path.join(DATA_DIR, 'auth');
+async function startBot(account) {
+  const { id, assistantId, apiKey } = account;
+  const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
+  const AUTH_DIR = path.join(DATA_DIR, 'auth', id);
 
-async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
 
-  console.log(`[Bot] Starting with WA v${version.join('.')}`);
+  console.log(`[${id}] Starting (WA v${version.join('.')})`);
 
   const sock = makeWASocket({
     version,
@@ -34,29 +35,36 @@ async function startBot() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      global.currentQR = qr;
-      global.botStatus = 'awaiting_scan';
-      console.log('[Bot] QR ready — open your Render URL in a browser to scan it.');
+      if (global.botAccounts?.[id]) {
+        global.botAccounts[id].qr = qr;
+        global.botAccounts[id].status = 'awaiting_scan';
+      }
+      console.log(`[${id}] QR ready — open your Render URL to scan.`);
       qrcode.generate(qr, { small: true });
     }
 
     if (connection === 'close') {
       const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
-      global.botStatus = 'disconnected';
-      console.log(`[Bot] Disconnected — code: ${statusCode} | logged out: ${loggedOut}`);
+      if (global.botAccounts?.[id]) {
+        global.botAccounts[id].status = 'disconnected';
+        global.botAccounts[id].qr = null;
+      }
+      console.log(`[${id}] Disconnected (code: ${statusCode})`);
       if (!loggedOut) {
-        console.log('[Bot] Reconnecting...');
-        startBot();
+        console.log(`[${id}] Reconnecting...`);
+        setTimeout(() => startBot(account), 3000);
       } else {
-        console.log('[Bot] Logged out. Delete data/auth and restart to re-link.');
+        console.log(`[${id}] Logged out — delete data/auth/${id} and restart to re-link.`);
       }
     }
 
     if (connection === 'open') {
-      global.currentQR = null;
-      global.botStatus = 'connected';
-      console.log('[Bot] ✓ Connected and ready to reply!');
+      if (global.botAccounts?.[id]) {
+        global.botAccounts[id].qr = null;
+        global.botAccounts[id].status = 'connected';
+      }
+      console.log(`[${id}] ✓ Connected and ready!`);
     }
   });
 
@@ -68,7 +76,6 @@ async function startBot() {
       if (!msg.message) continue;
       if (isJidBroadcast(msg.key.remoteJid)) continue;
 
-      // Skip group messages (set REPLY_IN_GROUPS=true in .env to enable)
       const isGroup = msg.key.remoteJid.endsWith('@g.us');
       if (isGroup && process.env.REPLY_IN_GROUPS !== 'true') continue;
 
@@ -82,14 +89,14 @@ async function startBot() {
       if (!text.trim()) continue;
 
       const from = msg.key.remoteJid;
-      console.log(`[Bot] ← ${from}: ${text.substring(0, 80)}`);
+      console.log(`[${id}] ← ${from}: ${text.substring(0, 80)}`);
 
       try {
-        const reply = await getReply(from, text);
+        const reply = await getReply({ contactId: from, accountId: id, userMessage: text, assistantId, apiKey });
         await sock.sendMessage(from, { text: reply }, { quoted: msg });
-        console.log(`[Bot] → ${reply.substring(0, 80)}`);
+        console.log(`[${id}] → ${reply.substring(0, 80)}`);
       } catch (err) {
-        console.error(`[Bot] AI error: ${err.message}`);
+        console.error(`[${id}] AI error: ${err.message}`);
       }
     }
   });
