@@ -17,6 +17,7 @@
     "openai": "^6.27.0",
     "pino": "^9.4.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "stripe": "^20.4.1"
   }
 }

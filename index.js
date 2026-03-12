@@ -293,6 +293,67 @@ app.get('/health', (_, res) => res.json({
   accounts: Object.values(global.botAccounts).map(a => ({ id: a.id, status: a.status })),
 }));
 
+// ── Stripe webhook ────────────────────────────────────────────────────────────
+// Stripe needs the raw body to verify the signature — must be before express.json()
+const { addNumber, removeNumber } = require('./src/whitelist');
+
+app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.warn('[Stripe] STRIPE_WEBHOOK_SECRET not set — skipping webhook');
+    return res.sendStatus(200);
+  }
+
+  const Stripe = require('stripe');
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], webhookSecret);
+  } catch (err) {
+    console.error('[Stripe] Webhook signature invalid:', err.message);
+    return res.status(400).send('Webhook signature invalid');
+  }
+
+  const session = event.data.object;
+
+  // Which bot account does this payment belong to?
+  // Set metadata.account_id on your Stripe Payment Link to route correctly
+  const accountId = session.metadata?.account_id || 'default';
+
+  // Extract the WhatsApp number from the custom field or metadata
+  // In Stripe Payment Links, add a custom field labelled "whatsapp_number"
+  const rawPhone =
+    session.metadata?.whatsapp_number ||
+    session.custom_fields?.find(f => f.key === 'whatsapp_number')?.text?.value ||
+    session.customer_details?.phone ||
+    null;
+
+  if (!rawPhone) {
+    console.warn(`[Stripe] No phone number found in event ${event.type}`);
+    return res.sendStatus(200);
+  }
+
+  if (event.type === 'checkout.session.completed' || event.type === 'invoice.payment_succeeded') {
+    addNumber(accountId, rawPhone, {
+      stripeCustomerId: session.customer,
+      email: session.customer_details?.email,
+      name: session.customer_details?.name,
+    });
+    console.log(`[Stripe] ✓ Payment received — added ${rawPhone} to ${accountId}`);
+  }
+
+  if (
+    event.type === 'customer.subscription.deleted' ||
+    event.type === 'invoice.payment_failed'
+  ) {
+    removeNumber(accountId, rawPhone);
+    console.log(`[Stripe] ✗ Subscription ended — removed ${rawPhone} from ${accountId}`);
+  }
+
+  res.sendStatus(200);
+});
+
 app.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));
 
 // ── Start one bot per account ─────────────────────────────────────────────────

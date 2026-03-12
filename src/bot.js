@@ -9,6 +9,7 @@ const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 const { getReply } = require('./assistant');
+const { isAllowed } = require('./whitelist');
 
 async function startBot(account) {
   const { id, instructions, model, apiKey } = account;
@@ -90,6 +91,17 @@ async function startBot(account) {
 
       const from = msg.key.remoteJid;
       console.log(`[${id}] ← ${from}: ${text.substring(0, 80)}`);
+
+      // Check whitelist — if account has a whitelist, only respond to allowed numbers
+      if (!isAllowed(id, from)) {
+        const paymentLink = process.env[`ACCOUNT_${id}_PAYMENT_LINK`] || process.env.PAYMENT_LINK || null;
+        const blocked = paymentLink
+          ? `Hi! This is a paid service. Subscribe here to get access:\n${paymentLink}`
+          : `Hi! This is a paid service. Please contact us to get access.`;
+        await sock.sendMessage(from, { text: blocked }, { quoted: msg });
+        console.log(`[${id}] Blocked non-subscriber: ${from}`);
+        continue;
+      }
 
       try {
         const reply = await getReply({ contactId: from, accountId: id, userMessage: text, instructions, model, apiKey });
