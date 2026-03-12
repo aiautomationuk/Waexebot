@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: wa-render-bot
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /data
+      - key: OPENAI_API_KEY
+        sync: false   # you enter this in Render dashboard
+      - key: ASSISTANT_ID
+        sync: false   # you enter this in Render dashboard
+      - key: REPLY_IN_GROUPS
+        value: "false"
+    disk:
+      name: bot-data
+      mountPath: /data
+      sizeGB: 1
