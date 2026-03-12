@@ -71,31 +71,38 @@ app.get('/', (_, res) => {
   const states = Object.values(global.botAccounts);
   const cards = states.map(acc => {
     if (acc.status === 'connected') {
-      return `<div class="card">
+      return `<div class="card" id="card-${acc.id}">
         <h3>${acc.id}</h3>
         <div class="connected">✓ Connected</div>
       </div>`;
     }
     if (acc.qr) {
-      return `<div class="card">
+      return `<div class="card" id="card-${acc.id}">
         <h3>${acc.id}</h3>
-        <p class="hint">Scan with WhatsApp<br>Settings → Linked Devices → Link a Device</p>
-        <img src="/qr/${acc.id}.png" alt="QR"/>
-        <p class="sub">Page refreshes every 15s</p>
+        <img id="qr-${acc.id}" src="/qr/${acc.id}.png" alt="QR Code" style="display:block;margin:0 auto"/>
+        <div class="countdown" id="cd-${acc.id}">QR refreshes in <span>18s</span></div>
+        <div class="steps">
+          <b>How to scan:</b><br>
+          1. Open WhatsApp on your phone<br>
+          2. Tap <b>Settings</b> (bottom right)<br>
+          3. Tap <b>Linked Devices</b><br>
+          4. Tap <b>Link a Device</b><br>
+          5. Point camera at the QR above
+        </div>
       </div>`;
     }
-    return `<div class="card">
+    return `<div class="card" id="card-${acc.id}">
       <h3>${acc.id}</h3>
       <div class="waiting">⏳ ${acc.status}…</div>
     </div>`;
   }).join('');
 
+  const accountIds = Object.keys(global.botAccounts);
   res.send(`<!DOCTYPE html>
 <html>
 <head>
   <title>WaRenderBot</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="refresh" content="15">
   <style>
     * { box-sizing: border-box; }
     body { font-family: sans-serif; background: #f0f0f0; margin: 0; padding: 24px; }
@@ -108,12 +115,63 @@ app.get('/', (_, res) => {
     .waiting { color: #999; padding: 20px 0; }
     img { width: 240px; height: 240px; border-radius: 8px; border: 1px solid #eee; }
     .hint { font-size: 13px; color: #555; margin: 0 0 12px; }
-    .sub { font-size: 11px; color: #aaa; margin-top: 8px; }
+    .countdown { font-size: 12px; color: #aaa; margin-top: 8px; }
+    .countdown span { font-weight: bold; color: #888; }
+    .steps { font-size: 12px; color: #888; margin-top: 10px; line-height: 1.7; text-align: left;
+             background: #f8f8f8; border-radius: 8px; padding: 10px 14px; }
+    .steps b { color: #128C7E; }
   </style>
 </head>
 <body>
   <h1>WaRenderBot</h1>
   <div class="grid">${cards}</div>
+  <script>
+    const ids = ${JSON.stringify(accountIds)};
+    const INTERVAL = 18000; // refresh QR image every 18 seconds
+
+    function refreshQR(id) {
+      const img = document.getElementById('qr-' + id);
+      if (!img) return;
+      // Bust cache so the latest QR is fetched
+      img.src = '/qr/' + id + '.png?t=' + Date.now();
+    }
+
+    function startCountdown(id) {
+      const el = document.getElementById('cd-' + id);
+      if (!el) return;
+      let secs = Math.floor(INTERVAL / 1000);
+      el.querySelector('span').textContent = secs + 's';
+      const tick = setInterval(() => {
+        secs--;
+        if (secs <= 0) {
+          clearInterval(tick);
+          refreshQR(id);
+          startCountdown(id);
+        } else {
+          const sp = el.querySelector('span');
+          if (sp) sp.textContent = secs + 's';
+        }
+      }, 1000);
+    }
+
+    // Also poll status so connected cards update without full reload
+    async function pollStatus() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        for (const acc of data.accounts) {
+          const card = document.getElementById('card-' + acc.id);
+          if (!card) continue;
+          if (acc.status === 'connected') {
+            card.innerHTML = '<h3>' + acc.id + '</h3><div class="connected">✓ Connected</div>';
+          }
+        }
+      } catch {}
+    }
+
+    ids.forEach(id => startCountdown(id));
+    setInterval(pollStatus, 5000);
+  </script>
 </body>
 </html>`);
 });
