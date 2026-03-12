@@ -34,16 +34,16 @@ async function startBot() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\n[Bot] ═══════════════════════════════════════');
-      console.log('[Bot] Scan this QR code with WhatsApp:');
-      console.log('[Bot] Settings → Linked Devices → Link a Device');
-      console.log('[Bot] ═══════════════════════════════════════\n');
+      global.currentQR = qr;
+      global.botStatus = 'awaiting_scan';
+      console.log('[Bot] QR ready — open your Render URL in a browser to scan it.');
       qrcode.generate(qr, { small: true });
     }
 
     if (connection === 'close') {
       const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
+      global.botStatus = 'disconnected';
       console.log(`[Bot] Disconnected — code: ${statusCode} | logged out: ${loggedOut}`);
       if (!loggedOut) {
         console.log('[Bot] Reconnecting...');
@@ -54,6 +54,8 @@ async function startBot() {
     }
 
     if (connection === 'open') {
+      global.currentQR = null;
+      global.botStatus = 'connected';
       console.log('[Bot] ✓ Connected and ready to reply!');
     }
   });
