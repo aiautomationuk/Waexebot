@@ -28,9 +28,9 @@ function parseAccounts() {
   for (let i = 1; i <= 20; i++) {
     const assistantId = process.env[`ACCOUNT_${i}_ASSISTANT_ID`];
     if (!assistantId) break;
-    const apiKey = process.env[`ACCOUNT_${i}_API_KEY`] || process.env.OPENAI_API_KEY;
+    const apiKey = process.env[`ACCOUNT_${i}_OPENAI_API_KEY`] || process.env[`ACCOUNT_${i}_API_KEY`] || process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error(`[Main] ACCOUNT_${i}_API_KEY not set and no OPENAI_API_KEY fallback — skipping.`);
+      console.error(`[Main] ACCOUNT_${i}_OPENAI_API_KEY not set and no OPENAI_API_KEY fallback — skipping.`);
       continue;
     }
     accounts.push({
