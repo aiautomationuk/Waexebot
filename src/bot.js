@@ -11,7 +11,7 @@ const path = require('path');
 const { getReply } = require('./assistant');
 
 async function startBot(account) {
-  const { id, assistantId, apiKey } = account;
+  const { id, instructions, model, apiKey } = account;
   const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
   const AUTH_DIR = path.join(DATA_DIR, 'auth', id);
 
@@ -53,7 +53,7 @@ async function startBot(account) {
       console.log(`[${id}] Disconnected (code: ${statusCode})`);
       if (!loggedOut) {
         console.log(`[${id}] Reconnecting...`);
-        setTimeout(() => startBot(account), 3000);
+        setTimeout(() => startBot({ id, instructions, model, apiKey }), 3000);
       } else {
         console.log(`[${id}] Logged out — delete data/auth/${id} and restart to re-link.`);
       }
@@ -92,7 +92,7 @@ async function startBot(account) {
       console.log(`[${id}] ← ${from}: ${text.substring(0, 80)}`);
 
       try {
-        const reply = await getReply({ contactId: from, accountId: id, userMessage: text, assistantId, apiKey });
+        const reply = await getReply({ contactId: from, accountId: id, userMessage: text, instructions, model, apiKey });
         await sock.sendMessage(from, { text: reply }, { quoted: msg });
         console.log(`[${id}] → ${reply.substring(0, 80)}`);
       } catch (err) {

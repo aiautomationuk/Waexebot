@@ -20,34 +20,40 @@ try {
 }
 
 // ── Parse accounts from environment ──────────────────────────────────────────
-// Multi-account: set ACCOUNT_1_NAME, ACCOUNT_1_ASSISTANT_ID, ACCOUNT_1_API_KEY
-//                    ACCOUNT_2_NAME, ACCOUNT_2_ASSISTANT_ID, ACCOUNT_2_API_KEY  etc.
-// Single account fallback: just set ASSISTANT_ID + OPENAI_API_KEY
+// Multi-account example:
+//   ACCOUNT_1_NAME=business
+//   ACCOUNT_1_INSTRUCTIONS=You are a helpful sales agent for Acme Ltd...
+//   ACCOUNT_1_MODEL=gpt-4o          (optional, defaults to gpt-4o)
+//   ACCOUNT_1_OPENAI_API_KEY=sk-... (optional, falls back to OPENAI_API_KEY)
+//
+// Single-account fallback: just set INSTRUCTIONS + OPENAI_API_KEY
 function parseAccounts() {
   const accounts = [];
   for (let i = 1; i <= 20; i++) {
-    const assistantId = process.env[`ACCOUNT_${i}_ASSISTANT_ID`];
-    if (!assistantId) break;
+    const name = process.env[`ACCOUNT_${i}_NAME`];
+    if (!name) break;
     const apiKey = process.env[`ACCOUNT_${i}_OPENAI_API_KEY`] || process.env[`ACCOUNT_${i}_API_KEY`] || process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error(`[Main] ACCOUNT_${i}_OPENAI_API_KEY not set and no OPENAI_API_KEY fallback — skipping.`);
+      console.error(`[Main] ACCOUNT_${i}_OPENAI_API_KEY not set — skipping.`);
       continue;
     }
     accounts.push({
-      id: (process.env[`ACCOUNT_${i}_NAME`] || `account${i}`).replace(/\s+/g, '_'),
-      assistantId,
+      id: name.replace(/\s+/g, '_'),
+      instructions: process.env[`ACCOUNT_${i}_INSTRUCTIONS`] || process.env.INSTRUCTIONS || 'You are a helpful assistant.',
+      model: process.env[`ACCOUNT_${i}_MODEL`] || process.env.MODEL || 'gpt-4o',
       apiKey,
     });
   }
   // Single-account fallback
   if (accounts.length === 0) {
-    if (!process.env.ASSISTANT_ID || !process.env.OPENAI_API_KEY) {
-      console.error('[Main] Missing ASSISTANT_ID or OPENAI_API_KEY. Set them in your environment.');
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('[Main] Missing OPENAI_API_KEY. Set it in your environment.');
       process.exit(1);
     }
     accounts.push({
       id: 'default',
-      assistantId: process.env.ASSISTANT_ID,
+      instructions: process.env.INSTRUCTIONS || 'You are a helpful assistant.',
+      model: process.env.MODEL || 'gpt-4o',
       apiKey: process.env.OPENAI_API_KEY,
     });
   }
