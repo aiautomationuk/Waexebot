@@ -176,6 +176,99 @@ app.get('/', (_, res) => {
 </html>`);
 });
 
+// Per-client page — e.g. /abclimited shows only that account's QR
+app.get('/:accountId', (req, res, next) => {
+  const acc = global.botAccounts[req.params.accountId];
+  if (!acc) return next(); // fall through to 404 if unknown
+
+  let body;
+  if (acc.status === 'connected') {
+    body = `<div class="card" id="card-${acc.id}">
+      <h3>${acc.id}</h3>
+      <div class="connected">✓ Connected — bot is active!</div>
+    </div>`;
+  } else if (acc.qr) {
+    body = `<div class="card" id="card-${acc.id}">
+      <h3>${acc.id}</h3>
+      <img id="qr-${acc.id}" src="/qr/${acc.id}.png" alt="QR Code" style="display:block;margin:0 auto"/>
+      <div class="countdown" id="cd-${acc.id}">QR refreshes in <span>18s</span></div>
+      <div class="steps">
+        <b>How to scan:</b><br>
+        1. Open WhatsApp on your phone<br>
+        2. Tap <b>Settings</b> (bottom right)<br>
+        3. Tap <b>Linked Devices</b><br>
+        4. Tap <b>Link a Device</b><br>
+        5. Point camera at the QR above
+      </div>
+    </div>`;
+  } else {
+    body = `<div class="card" id="card-${acc.id}">
+      <h3>${acc.id}</h3>
+      <div class="waiting">⏳ Starting up, please wait…</div>
+    </div>`;
+  }
+
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>${acc.id} — WaRenderBot</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; background: #f0f0f0; margin: 0;
+           display: flex; flex-direction: column; align-items: center;
+           justify-content: center; min-height: 100vh; padding: 24px; }
+    .card { background: white; padding: 28px; border-radius: 16px;
+            box-shadow: 0 4px 16px #0002; text-align: center; width: 300px; }
+    .card h3 { margin: 0 0 16px; color: #128C7E; font-size: 20px; }
+    .connected { color: #25D366; font-size: 20px; font-weight: bold; padding: 20px 0; }
+    .waiting { color: #999; padding: 20px 0; }
+    img { width: 240px; height: 240px; border-radius: 8px; border: 1px solid #eee; }
+    .countdown { font-size: 12px; color: #aaa; margin-top: 8px; }
+    .countdown span { font-weight: bold; color: #888; }
+    .steps { font-size: 12px; color: #888; margin-top: 10px; line-height: 1.7; text-align: left;
+             background: #f8f8f8; border-radius: 8px; padding: 10px 14px; }
+    .steps b { color: #128C7E; }
+  </style>
+</head>
+<body>
+  ${body}
+  <script>
+    const id = ${JSON.stringify(acc.id)};
+    const INTERVAL = 18000;
+    function refreshQR() {
+      const img = document.getElementById('qr-' + id);
+      if (img) img.src = '/qr/' + id + '.png?t=' + Date.now();
+    }
+    function startCountdown() {
+      const el = document.getElementById('cd-' + id);
+      if (!el) return;
+      let secs = Math.floor(INTERVAL / 1000);
+      el.querySelector('span').textContent = secs + 's';
+      const tick = setInterval(() => {
+        secs--;
+        if (secs <= 0) { clearInterval(tick); refreshQR(); startCountdown(); }
+        else { const sp = el.querySelector('span'); if (sp) sp.textContent = secs + 's'; }
+      }, 1000);
+    }
+    async function pollStatus() {
+      try {
+        const r = await fetch('/health');
+        const data = await r.json();
+        const acc = data.accounts.find(a => a.id === id);
+        if (acc?.status === 'connected') {
+          document.getElementById('card-' + id).innerHTML =
+            '<h3>' + id + '</h3><div class="connected">✓ Connected — bot is active!</div>';
+        }
+      } catch {}
+    }
+    startCountdown();
+    setInterval(pollStatus, 5000);
+  </script>
+</body>
+</html>`);
+});
+
 app.get('/qr/:id.png', async (req, res) => {
   const acc = global.botAccounts[req.params.id];
   if (!acc?.qr) return res.status(404).send('No QR');
