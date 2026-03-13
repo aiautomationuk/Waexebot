@@ -4,7 +4,6 @@ const {
   DisconnectReason,
   fetchLatestBaileysVersion,
   isJidBroadcast,
-  makeInMemoryStore,
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
@@ -22,8 +21,8 @@ async function startBot(account) {
 
   console.log(`[${id}] Starting (WA v${version.join('.')})`);
 
-  // In-memory store maps LID JIDs → phone JIDs for whitelist lookups
-  const store = makeInMemoryStore({ logger: require('pino')({ level: 'silent' }) });
+  // Maps LID JIDs → phone JIDs for whitelist lookups
+  const lidToPhone = {};
 
   const sock = makeWASocket({
     version,
@@ -34,7 +33,15 @@ async function startBot(account) {
     syncFullHistory: false,
   });
 
-  store.bind(sock.ev);
+  // Build LID → phone map from contact events
+  sock.ev.on('contacts.upsert', (contacts) => {
+    for (const c of contacts) {
+      if (c.lid && c.id && c.id.endsWith('@s.whatsapp.net')) {
+        lidToPhone[c.lid] = c.id;
+        console.log(`[${id}] Mapped LID ${c.lid} → ${c.id}`);
+      }
+    }
+  });
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -100,12 +107,10 @@ async function startBot(account) {
 
       const from = msg.key.remoteJid;
 
-      // Resolve LID JIDs to phone JIDs using the store contact map
+      // Resolve LID JIDs to phone JIDs for whitelist lookup
       let resolvedJid = from;
       if (from.endsWith('@lid')) {
-        const phoneJid = Object.keys(store.contacts || {}).find(
-          jid => jid.endsWith('@s.whatsapp.net') && store.contacts[jid]?.lid === from
-        );
+        const phoneJid = lidToPhone[from];
         if (phoneJid) {
           resolvedJid = phoneJid;
           console.log(`[${id}] Resolved LID ${from} → ${phoneJid}`);
