@@ -74,4 +74,28 @@ function listNumbers(accountId) {
   return data[accountId] || null; // null means no whitelist (open access)
 }
 
-module.exports = { isAllowed, addNumber, removeNumber, enableWhitelist, listNumbers, normalise };
+// Find a subscriber by their one-time verification code
+// Returns { accountId, phone } or null
+function findByCode(accountId, code) {
+  const data = load();
+  const subscribers = data[accountId];
+  if (!subscribers) return null;
+  for (const [phone, meta] of Object.entries(subscribers)) {
+    if (meta.verificationCode && meta.verificationCode === code.toUpperCase()) {
+      return { phone };
+    }
+  }
+  return null;
+}
+
+// Remove the verification code after it has been used
+function clearCode(accountId, phone) {
+  const data = load();
+  const number = normalise(phone);
+  if (data[accountId]?.[number]) {
+    delete data[accountId][number].verificationCode;
+    save(data);
+  }
+}
+
+module.exports = { isAllowed, addNumber, removeNumber, enableWhitelist, listNumbers, normalise, findByCode, clearCode };

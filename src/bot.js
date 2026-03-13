@@ -9,7 +9,7 @@ const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 const { getReply } = require('./assistant');
-const { isAllowed, addNumber, normalise } = require('./whitelist');
+const { isAllowed, addNumber, normalise, findByCode, clearCode } = require('./whitelist');
 
 async function startBot(account) {
   const { id, instructions, model, apiKey, paymentLink, paymentLinkMonthly } = account;
@@ -115,45 +115,26 @@ async function startBot(account) {
           resolvedJid = phoneJid;
           console.log(`[${id}] Resolved LID ${from} → ${phoneJid}`);
         } else {
-          // LID unresolved — check if this message is a phone number for self-verification
-          const digits = normalise(text);
-          if (digits.length >= 7) {
-            // Try the number as-is, and also with UK country code if it starts with 0
-            const candidates = [digits];
-            if (digits.startsWith('0')) candidates.push('44' + digits.slice(1));
-
-            let verified = false;
-            for (const candidate of candidates) {
-              if (isAllowed(id, candidate + '@s.whatsapp.net')) {
-                // Add the LID directly to the whitelist so future messages work
-                const lidDigits = from.split('@')[0];
-                addNumber(id, lidDigits, { verifiedViaPhone: candidate, lid: from });
-                lidToPhone[from] = candidate + '@s.whatsapp.net';
-                resolvedJid = candidate + '@s.whatsapp.net';
-                console.log(`[${id}] LID ${from} self-verified as ${candidate}`);
-                await sock.sendMessage(from, {
-                  text: '✅ Verified! You now have full access. ¡Bienvenido! 🇪🇸',
-                }, { quoted: msg });
-                verified = true;
-                break;
-              }
-            }
-            if (verified) {
-              // Fall through to AI reply below
-            } else {
-              // Number provided but not in whitelist
-              const trialLink = paymentLinkMonthly || paymentLink;
-              const reply = trialLink
-                ? `That number isn't linked to an active subscription.\n\nStart your free 7-day trial here:\n${trialLink}`
-                : `That number isn't linked to an active subscription. Please subscribe to get access.`;
-              await sock.sendMessage(from, { text: reply }, { quoted: msg });
-              continue;
-            }
-          } else {
-            // Not a phone number — ask them to verify with their checkout phone number
-            console.log(`[${id}] Unresolved LID ${from} — sending verification prompt`);
+          // LID unresolved — check if this message is a valid one-time access code
+          const trimmed = text.trim().toUpperCase();
+          const match = findByCode(id, trimmed);
+          if (match) {
+            // Valid code — add LID to whitelist and clear the code
+            const lidDigits = from.split('@')[0];
+            addNumber(id, lidDigits, { verifiedViaCode: true, linkedPhone: match.phone });
+            clearCode(id, match.phone);
+            lidToPhone[from] = match.phone + '@s.whatsapp.net';
+            resolvedJid = match.phone + '@s.whatsapp.net';
+            console.log(`[${id}] LID ${from} verified via code → ${match.phone}`);
             await sock.sendMessage(from, {
-              text: `Hi! To access your Spanish Teacher subscription, please reply with the phone number you used at checkout.\n\nFor example: 447510698846\n\n(Include your country code — UK numbers start with 44)`,
+              text: '✅ Verified! You now have full access. ¡Bienvenido! 🇪🇸',
+            }, { quoted: msg });
+            // Fall through to AI reply below
+          } else {
+            // No valid code — prompt for it
+            console.log(`[${id}] Unresolved LID ${from} — sending code prompt`);
+            await sock.sendMessage(from, {
+              text: `Hi! To access your Spanish Teacher subscription, please reply with the 6-digit access code from your welcome message.`,
             }, { quoted: msg });
             continue;
           }
