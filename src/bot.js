@@ -4,6 +4,7 @@ const {
   DisconnectReason,
   fetchLatestBaileysVersion,
   isJidBroadcast,
+  makeInMemoryStore,
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
@@ -21,6 +22,9 @@ async function startBot(account) {
 
   console.log(`[${id}] Starting (WA v${version.join('.')})`);
 
+  // In-memory store maps LID JIDs → phone JIDs for whitelist lookups
+  const store = makeInMemoryStore({ logger: require('pino')({ level: 'silent' }) });
+
   const sock = makeWASocket({
     version,
     auth: state,
@@ -29,6 +33,8 @@ async function startBot(account) {
     generateHighQualityLinkPreview: false,
     syncFullHistory: false,
   });
+
+  store.bind(sock.ev);
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -93,23 +99,38 @@ async function startBot(account) {
       if (!text.trim()) continue;
 
       const from = msg.key.remoteJid;
+
+      // Resolve LID JIDs to phone JIDs using the store contact map
+      let resolvedJid = from;
+      if (from.endsWith('@lid')) {
+        const phoneJid = Object.keys(store.contacts || {}).find(
+          jid => jid.endsWith('@s.whatsapp.net') && store.contacts[jid]?.lid === from
+        );
+        if (phoneJid) {
+          resolvedJid = phoneJid;
+          console.log(`[${id}] Resolved LID ${from} → ${phoneJid}`);
+        } else {
+          console.log(`[${id}] Unresolved LID ${from} — whitelist check will use LID`);
+        }
+      }
+
       console.log(`[${id}] ← ${from}: ${text.substring(0, 80)}`);
 
       // TEMP safety: ensure your own number is never blocked while we refine Stripe → whitelist sync
       // (Matches 447399662383 for the Spanish_Teacher account)
-      const fromDigits = from.split('@')[0].replace(/\D/g, '');
+      const fromDigits = resolvedJid.split('@')[0].replace(/\D/g, '');
       const bypassWhitelist =
         id === 'Spanish_Teacher' &&
         fromDigits === '447399662383';
 
       // Check whitelist — if account has a whitelist, only respond to allowed numbers
-      if (!bypassWhitelist && !isAllowed(id, from)) {
+      if (!bypassWhitelist && !isAllowed(id, resolvedJid)) {
         const trialLink = paymentLinkMonthly || paymentLink;
         const blocked = trialLink
           ? `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days:\n${trialLink}`
           : `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days — contact us to get started!`;
         await sock.sendMessage(from, { text: blocked }, { quoted: msg });
-        console.log(`[${id}] Blocked non-subscriber: ${from}`);
+        console.log(`[${id}] Blocked non-subscriber: ${from} (resolved: ${resolvedJid})`);
         continue;
       }
 
