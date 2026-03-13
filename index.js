@@ -366,19 +366,22 @@ const { addNumber, removeNumber, normalise } = require('./src/whitelist');
 // ── Public endpoint: return verification code for a Stripe session ─────────────
 // Called by the success page using the session ID from the redirect URL.
 // No auth needed — session IDs are unguessable Stripe-generated strings.
-const { listNumbers } = require('./src/whitelist');
-app.get('/api/code', (req, res) => {
+const { addNumber: addNumberW, normalise: normaliseW } = require('./src/whitelist');
+app.get('/api/code', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const { sid } = req.query;
   if (!sid) return res.status(400).json({ error: 'sid required' });
 
-  const all = listNumbers ? null : null; // use raw load below
   const fs = require('fs');
-  const path = require('path');
-  const dataFile = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'allowed.json');
-  let data = {};
-  try { data = JSON.parse(fs.readFileSync(dataFile, 'utf8')); } catch {}
+  const pathMod = require('path');
+  const dataFile = pathMod.join(process.env.DATA_DIR || pathMod.join(__dirname, 'data'), 'allowed.json');
 
+  function readWhitelist() {
+    try { return JSON.parse(fs.readFileSync(dataFile, 'utf8')); } catch { return {}; }
+  }
+
+  // Fast path: webhook already processed this session
+  const data = readWhitelist();
   for (const [, subscribers] of Object.entries(data)) {
     for (const [, meta] of Object.entries(subscribers)) {
       if (meta.stripeSessionId === sid && meta.verificationCode) {
@@ -386,7 +389,52 @@ app.get('/api/code', (req, res) => {
       }
     }
   }
-  res.status(404).json({ error: 'not found' });
+
+  // Fallback: fetch session directly from Stripe (handles webhook delays / test mode)
+  if (!process.env.STRIPE_SECRET_KEY) return res.status(404).json({ error: 'not found' });
+
+  try {
+    const Stripe = require('stripe');
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const session = await stripe.checkout.sessions.retrieve(sid);
+
+    if (session.status !== 'complete') return res.status(404).json({ error: 'session not complete' });
+
+    const accountId = session.metadata?.account_id || 'default';
+    const rawPhone =
+      session.metadata?.whatsapp_number ||
+      session.custom_fields?.find(f => f.key === 'whatsappno')?.text?.value ||
+      session.customer_details?.phone || null;
+
+    if (!rawPhone) return res.status(404).json({ error: 'no phone in session' });
+
+    let normPhone = normaliseW(rawPhone);
+    if (normPhone.startsWith('0')) normPhone = '44' + normPhone.slice(1);
+
+    // Re-read in case webhook fired while we were fetching from Stripe
+    const fresh = readWhitelist();
+    const existing = fresh[accountId]?.[normPhone];
+    if (existing?.verificationCode) {
+      return res.json({ code: existing.verificationCode, name: existing.name || null });
+    }
+
+    // Webhook hasn't fired yet — add subscriber now so they can use the bot immediately
+    const verificationCode = require('crypto').randomBytes(3).toString('hex').toUpperCase();
+    addNumberW(accountId, normPhone, {
+      stripeCustomerId: session.customer,
+      stripeSessionId: session.id,
+      email: session.customer_details?.email,
+      name: session.customer_details?.name,
+      verificationCode,
+      welcomePending: true,
+    });
+    console.log(`[/api/code] Added ${normPhone} to ${accountId} via session fallback (code: ${verificationCode})`);
+    return res.json({ code: verificationCode, name: session.customer_details?.name || null });
+
+  } catch (err) {
+    console.error('[/api/code] Stripe lookup failed:', err.message);
+    return res.status(404).json({ error: 'not found' });
+  }
 });
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
