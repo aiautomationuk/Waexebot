@@ -397,7 +397,7 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
   // In Stripe Payment Links, add a custom field labelled "whatsapp_number"
   const rawPhone =
     session.metadata?.whatsapp_number ||
-    session.custom_fields?.find(f => f.key === 'whatsapp_number')?.text?.value ||
+    session.custom_fields?.find(f => f.key === 'whatsappno')?.text?.value ||
     session.customer_details?.phone ||
     null;
 
