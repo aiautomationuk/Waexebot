@@ -94,11 +94,10 @@ async function startBot(account) {
 
       // Check whitelist — if account has a whitelist, only respond to allowed numbers
       if (!isAllowed(id, from)) {
-        const primary = paymentLink || paymentLinkMonthly;
-        let blocked = 'Hi! This is a paid service. Subscribe here to get access:';
-        if (paymentLinkMonthly) blocked += `\n\n📅 Monthly: ${paymentLinkMonthly}`;
-        if (paymentLink) blocked += `\n\n⭐ Annual (best value): ${paymentLink}`;
-        if (!primary) blocked = 'Hi! This is a paid service. Please contact us to get access.';
+        const trialLink = paymentLinkMonthly || paymentLink;
+        const blocked = trialLink
+          ? `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days:\n${trialLink}`
+          : `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days — contact us to get started!`;
         await sock.sendMessage(from, { text: blocked }, { quoted: msg });
         console.log(`[${id}] Blocked non-subscriber: ${from}`);
         continue;
