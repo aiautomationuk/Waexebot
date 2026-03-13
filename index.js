@@ -359,8 +359,10 @@ function sendWelcomeMessage(accountId, phone, text) {
     console.warn(`[Stripe] Cannot send welcome — no active connection for ${accountId}`);
     return;
   }
-  const digits = normalise(phone);
+  let digits = normalise(phone);
   if (!digits) return;
+  // Convert UK local format (07xxx) to international (447xxx)
+  if (digits.startsWith('0')) digits = '44' + digits.slice(1);
   const jid = `${digits}@s.whatsapp.net`;
   sock.sendMessage(jid, { text }).then(() => {
     console.log(`[Stripe] Welcome message sent to ${jid}`);
