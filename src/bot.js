@@ -9,7 +9,7 @@ const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 const { getReply } = require('./assistant');
-const { isAllowed } = require('./whitelist');
+const { isAllowed, addNumber, normalise } = require('./whitelist');
 
 async function startBot(account) {
   const { id, instructions, model, apiKey, paymentLink, paymentLinkMonthly } = account;
@@ -21,8 +21,11 @@ async function startBot(account) {
 
   console.log(`[${id}] Starting (WA v${version.join('.')})`);
 
-  // Maps LID JIDs → phone JIDs for whitelist lookups
+  // Maps LID JIDs → phone JIDs (populated via contacts.upsert)
   const lidToPhone = {};
+
+  // LIDs that have been sent the "reply with your number" verification prompt
+  const pendingVerification = new Set();
 
   const sock = makeWASocket({
     version,
@@ -33,7 +36,7 @@ async function startBot(account) {
     syncFullHistory: false,
   });
 
-  // Build LID → phone map from contact events
+  // Build LID → phone map from contact events (works when WhatsApp exposes the mapping)
   sock.ev.on('contacts.upsert', (contacts) => {
     for (const c of contacts) {
       if (c.lid && c.id && c.id.endsWith('@s.whatsapp.net')) {
@@ -115,7 +118,54 @@ async function startBot(account) {
           resolvedJid = phoneJid;
           console.log(`[${id}] Resolved LID ${from} → ${phoneJid}`);
         } else {
-          console.log(`[${id}] Unresolved LID ${from} — whitelist check will use LID`);
+          // LID unresolved — check if this message is a phone number for self-verification
+          const digits = normalise(text);
+          if (digits.length >= 7) {
+            // Try the number as-is, and also with UK country code if it starts with 0
+            const candidates = [digits];
+            if (digits.startsWith('0')) candidates.push('44' + digits.slice(1));
+
+            let verified = false;
+            for (const candidate of candidates) {
+              if (isAllowed(id, candidate + '@s.whatsapp.net')) {
+                // Add the LID directly to the whitelist so future messages work
+                const lidDigits = from.split('@')[0];
+                addNumber(id, lidDigits, { verifiedViaPhone: candidate, lid: from });
+                lidToPhone[from] = candidate + '@s.whatsapp.net';
+                resolvedJid = candidate + '@s.whatsapp.net';
+                console.log(`[${id}] LID ${from} self-verified as ${candidate}`);
+                await sock.sendMessage(from, {
+                  text: '✅ Verified! You now have full access. ¡Bienvenido! 🇪🇸',
+                }, { quoted: msg });
+                verified = true;
+                break;
+              }
+            }
+            if (verified) {
+              // Fall through to AI reply below
+            } else {
+              // Number provided but not in whitelist
+              const trialLink = paymentLinkMonthly || paymentLink;
+              const reply = trialLink
+                ? `That number isn't linked to an active subscription.\n\nStart your free 7-day trial here:\n${trialLink}`
+                : `That number isn't linked to an active subscription. Please subscribe to get access.`;
+              await sock.sendMessage(from, { text: reply }, { quoted: msg });
+              continue;
+            }
+          } else {
+            // Not a phone number — send blocked message with verification prompt
+            console.log(`[${id}] Unresolved LID ${from} — sending verification prompt`);
+            const trialLink = paymentLinkMonthly || paymentLink;
+            let blocked = trialLink
+              ? `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days:\n${trialLink}`
+              : `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days — contact us to get started!`;
+            if (!pendingVerification.has(from)) {
+              blocked += `\n\nAlready subscribed? Reply with the phone number you used at checkout (e.g. 447510698846) to verify your access.`;
+              pendingVerification.add(from);
+            }
+            await sock.sendMessage(from, { text: blocked }, { quoted: msg });
+            continue;
+          }
         }
       }
 
