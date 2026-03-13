@@ -24,9 +24,6 @@ async function startBot(account) {
   // Maps LID JIDs → phone JIDs (populated via contacts.upsert)
   const lidToPhone = {};
 
-  // LIDs that have been sent the "reply with your number" verification prompt
-  const pendingVerification = new Set();
-
   const sock = makeWASocket({
     version,
     auth: state,
@@ -153,17 +150,11 @@ async function startBot(account) {
               continue;
             }
           } else {
-            // Not a phone number — send blocked message with verification prompt
+            // Not a phone number — ask them to verify with their checkout phone number
             console.log(`[${id}] Unresolved LID ${from} — sending verification prompt`);
-            const trialLink = paymentLinkMonthly || paymentLink;
-            let blocked = trialLink
-              ? `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days:\n${trialLink}`
-              : `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days — contact us to get started!`;
-            if (!pendingVerification.has(from)) {
-              blocked += `\n\nAlready subscribed? Reply with the phone number you used at checkout (e.g. 447510698846) to verify your access.`;
-              pendingVerification.add(from);
-            }
-            await sock.sendMessage(from, { text: blocked }, { quoted: msg });
+            await sock.sendMessage(from, {
+              text: `Hi! To access your Spanish Teacher subscription, please reply with the phone number you used at checkout.\n\nFor example: 447510698846\n\n(Include your country code — UK numbers start with 44)`,
+            }, { quoted: msg });
             continue;
           }
         }

@@ -419,7 +419,10 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
   }
 
   if (event.type === 'checkout.session.completed' || event.type === 'invoice.payment_succeeded') {
-    addNumber(accountId, rawPhone, {
+    // Normalise to international format before storing (07xxx → 447xxx)
+    let normalisedPhone = normalise(rawPhone);
+    if (normalisedPhone.startsWith('0')) normalisedPhone = '44' + normalisedPhone.slice(1);
+    addNumber(accountId, normalisedPhone, {
       stripeCustomerId: session.customer,
       email: session.customer_details?.email,
       name: session.customer_details?.name,
