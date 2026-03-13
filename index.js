@@ -318,6 +318,17 @@ app.get('/admin/subscribers', (req, res) => {
   res.json(result);
 });
 
+// Quick add via GET: /admin/add-subscriber?key=...&accountId=Spanish_Teacher&phone=4477...
+app.get('/admin/add-subscriber', (req, res) => {
+  if (req.query.key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorised' });
+  const accountId = req.query.accountId;
+  const phone = req.query.phone;
+  const name = req.query.name || '';
+  if (!accountId || !phone) return res.status(400).json({ error: 'accountId and phone required' });
+  adminAdd(accountId, phone, { name, addedManually: true });
+  res.json({ ok: true, message: `Added ${phone} to ${accountId}` });
+});
+
 // Manually add a number: POST /admin/subscribers?key=yourkey
 // Body: { "accountId": "spanish_teacher", "phone": "447911123456", "name": "John" }
 app.post('/admin/subscribers', express.json(), (req, res) => {
