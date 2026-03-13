@@ -416,7 +416,7 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
     });
     console.log(`[Stripe] ✓ Payment received — added ${rawPhone} to ${accountId}`);
     sendWelcomeMessage(accountId, rawPhone,
-      '¡Hola! 👋 Thanks for subscribing. You\'re all set — send me a message to start learning Spanish with Señor Bot! 🇪🇸'
+      '¡Hola! 👋 Welcome to Spanish-Teacher.com!\n\nYour free trial is now active. I\'m your AI Spanish teacher — reply to this message to start your first lesson! 🇪🇸\n\nYou can ask me anything: grammar, vocabulary, conversation practice — I\'m here to help.'
     );
   }
 
