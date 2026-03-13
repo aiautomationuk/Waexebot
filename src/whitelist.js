@@ -31,12 +31,25 @@ function jidToNumber(jid) {
   return normalise(jid.split('@')[0]);
 }
 
-function isAllowed(accountId, jid) {
-  // If no whitelist configured for this account, allow everyone
+function isEnforced(accountId) {
+  // Whitelist is enforced if:
+  // 1. ACCOUNT_N_PAYMENT_LINK is set for this account (payment required), OR
+  // 2. The allowed.json file already has an entry for this account
+  const paymentLinkKey = Object.keys(process.env).find(
+    k => k.startsWith('ACCOUNT_') && k.endsWith('_PAYMENT_LINK') &&
+    process.env[k.replace('_PAYMENT_LINK', '_NAME')]?.replace(/\s+/g, '_') === accountId
+  );
+  if (paymentLinkKey || process.env[`PAYMENT_LINK_${accountId}`]) return true;
   const data = load();
-  if (!data[accountId]) return true;
+  return !!data[accountId];
+}
+
+function isAllowed(accountId, jid) {
+  if (!isEnforced(accountId)) return true; // no whitelist = open access
+  const data = load();
+  const list = data[accountId] || {};
   const number = jidToNumber(jid);
-  return !!data[accountId][number];
+  return !!list[number];
 }
 
 function addNumber(accountId, phone, meta = {}) {

@@ -296,6 +296,40 @@ app.get('/health', (_, res) => res.json({
   accounts: Object.values(global.botAccounts).map(a => ({ id: a.id, status: a.status })),
 }));
 
+// ── Admin: whitelist management ───────────────────────────────────────────────
+const { listNumbers, addNumber: adminAdd, removeNumber: adminRemove } = require('./src/whitelist');
+const ADMIN_KEY = process.env.ADMIN_KEY || 'changeme';
+
+// View all subscribers: GET /admin/subscribers?key=yourkey
+app.get('/admin/subscribers', (req, res) => {
+  if (req.query.key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorised' });
+  const result = {};
+  for (const acc of Object.keys(global.botAccounts)) {
+    result[acc] = listNumbers(acc) || '(open — no whitelist)';
+  }
+  res.json(result);
+});
+
+// Manually add a number: POST /admin/subscribers?key=yourkey
+// Body: { "accountId": "spanish_teacher", "phone": "447911123456", "name": "John" }
+app.post('/admin/subscribers', express.json(), (req, res) => {
+  if (req.query.key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorised' });
+  const { accountId, phone, name } = req.body;
+  if (!accountId || !phone) return res.status(400).json({ error: 'accountId and phone required' });
+  adminAdd(accountId, phone, { name: name || '', addedManually: true });
+  res.json({ ok: true, message: `Added ${phone} to ${accountId}` });
+});
+
+// Manually remove a number: DELETE /admin/subscribers?key=yourkey
+// Body: { "accountId": "spanish_teacher", "phone": "447911123456" }
+app.delete('/admin/subscribers', express.json(), (req, res) => {
+  if (req.query.key !== ADMIN_KEY) return res.status(401).json({ error: 'Unauthorised' });
+  const { accountId, phone } = req.body;
+  if (!accountId || !phone) return res.status(400).json({ error: 'accountId and phone required' });
+  adminRemove(accountId, phone);
+  res.json({ ok: true, message: `Removed ${phone} from ${accountId}` });
+});
+
 // ── Stripe webhook ────────────────────────────────────────────────────────────
 // Stripe needs the raw body to verify the signature — must be before express.json()
 const { addNumber, removeNumber } = require('./src/whitelist');
