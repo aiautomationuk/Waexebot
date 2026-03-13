@@ -95,8 +95,15 @@ async function startBot(account) {
       const from = msg.key.remoteJid;
       console.log(`[${id}] ← ${from}: ${text.substring(0, 80)}`);
 
+      // TEMP safety: ensure your own number is never blocked while we refine Stripe → whitelist sync
+      // (Matches 447399662383 for the Spanish_Teacher account)
+      const fromDigits = from.split('@')[0].replace(/\D/g, '');
+      const bypassWhitelist =
+        id === 'Spanish_Teacher' &&
+        fromDigits === '447399662383';
+
       // Check whitelist — if account has a whitelist, only respond to allowed numbers
-      if (!isAllowed(id, from)) {
+      if (!bypassWhitelist && !isAllowed(id, from)) {
         const trialLink = paymentLinkMonthly || paymentLink;
         const blocked = trialLink
           ? `Hey! Are you ready to start learning Spanish? 🇪🇸\n\nTry our service free for 7 days:\n${trialLink}`
