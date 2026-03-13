@@ -361,7 +361,7 @@ app.delete('/admin/subscribers', express.json(), (req, res) => {
 
 // ── Stripe webhook ────────────────────────────────────────────────────────────
 // Stripe needs the raw body to verify the signature — must be before express.json()
-const { addNumber, removeNumber, normalise } = require('./src/whitelist');
+const { addNumber, removeNumber, removeByCustomerId, normalise } = require('./src/whitelist');
 
 // ── Public endpoint: return verification code for a Stripe session ─────────────
 // Called by the success page using the session ID from the redirect URL.
@@ -519,8 +519,16 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
     event.type === 'customer.subscription.deleted' ||
     event.type === 'invoice.payment_failed'
   ) {
-    removeNumber(accountId, rawPhone);
-    console.log(`[Stripe] ✗ Subscription ended — removed ${rawPhone} from ${accountId}`);
+    const customerId = session.customer;
+    if (rawPhone) {
+      // Initial payment failure — phone is available directly
+      removeNumber(accountId, rawPhone);
+      console.log(`[Stripe] ✗ Removed ${rawPhone} from ${accountId}`);
+    } else if (customerId) {
+      // Renewal failure / cancellation — look up by Stripe customer ID
+      removeByCustomerId(accountId, customerId);
+      console.log(`[Stripe] ✗ Removed customer ${customerId} from ${accountId}`);
+    }
   }
 
   res.sendStatus(200);

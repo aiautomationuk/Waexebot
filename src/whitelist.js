@@ -115,4 +115,21 @@ function clearWelcomePending(accountId, phone) {
   }
 }
 
-module.exports = { isAllowed, addNumber, removeNumber, enableWhitelist, listNumbers, normalise, findByCode, clearCode, getEntry, clearWelcomePending };
+// Remove a subscriber by Stripe customer ID (used for cancellation/payment failure
+// events where the invoice has no phone number)
+function removeByCustomerId(accountId, stripeCustomerId) {
+  const data = load();
+  const subscribers = data[accountId];
+  if (!subscribers) return;
+  for (const [number, meta] of Object.entries(subscribers)) {
+    if (meta.stripeCustomerId === stripeCustomerId) {
+      delete subscribers[number];
+      save(data);
+      console.log(`[Whitelist] Removed ${number} from ${accountId} (Stripe customer: ${stripeCustomerId})`);
+      return;
+    }
+  }
+  console.warn(`[Whitelist] No entry found for Stripe customer ${stripeCustomerId} in ${accountId}`);
+}
+
+module.exports = { isAllowed, addNumber, removeNumber, removeByCustomerId, enableWhitelist, listNumbers, normalise, findByCode, clearCode, getEntry, clearWelcomePending };
