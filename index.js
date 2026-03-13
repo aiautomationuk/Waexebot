@@ -42,6 +42,8 @@ function parseAccounts() {
       instructions: process.env[`ACCOUNT_${i}_INSTRUCTIONS`] || process.env.INSTRUCTIONS || 'You are a helpful assistant.',
       model: process.env[`ACCOUNT_${i}_MODEL`] || process.env.MODEL || 'gpt-4o',
       apiKey,
+      paymentLink: process.env[`ACCOUNT_${i}_PAYMENT_LINK`] || process.env.PAYMENT_LINK || null,
+      paymentLinkMonthly: process.env[`ACCOUNT_${i}_PAYMENT_LINK_MONTHLY`] || process.env.PAYMENT_LINK_MONTHLY || null,
     });
   }
   // Single-account fallback
@@ -55,6 +57,8 @@ function parseAccounts() {
       instructions: process.env.INSTRUCTIONS || 'You are a helpful assistant.',
       model: process.env.MODEL || 'gpt-4o',
       apiKey: process.env.OPENAI_API_KEY,
+      paymentLink: process.env.PAYMENT_LINK || null,
+      paymentLinkMonthly: process.env.PAYMENT_LINK_MONTHLY || null,
     });
   }
   return accounts;
@@ -62,6 +66,10 @@ function parseAccounts() {
 
 const accounts = parseAccounts();
 console.log(`[Main] Loaded ${accounts.length} account(s): ${accounts.map(a => a.id).join(', ')}`);
+
+// Enforce whitelist for any account that has a payment link (paying subscribers only)
+const { enableWhitelist } = require('./src/whitelist');
+accounts.forEach(acc => { if (acc.paymentLink || acc.paymentLinkMonthly) enableWhitelist(acc.id); });
 
 // ── Global state (updated by each bot instance) ───────────────────────────────
 global.botAccounts = {};

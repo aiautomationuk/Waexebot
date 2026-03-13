@@ -12,7 +12,7 @@ const { getReply } = require('./assistant');
 const { isAllowed } = require('./whitelist');
 
 async function startBot(account) {
-  const { id, instructions, model, apiKey } = account;
+  const { id, instructions, model, apiKey, paymentLink, paymentLinkMonthly } = account;
   const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
   const AUTH_DIR = path.join(DATA_DIR, 'auth', id);
 
@@ -54,7 +54,7 @@ async function startBot(account) {
       console.log(`[${id}] Disconnected (code: ${statusCode})`);
       if (!loggedOut) {
         console.log(`[${id}] Reconnecting...`);
-        setTimeout(() => startBot({ id, instructions, model, apiKey }), 3000);
+        setTimeout(() => startBot(account), 3000);
       } else {
         console.log(`[${id}] Logged out — delete data/auth/${id} and restart to re-link.`);
       }
@@ -94,10 +94,11 @@ async function startBot(account) {
 
       // Check whitelist — if account has a whitelist, only respond to allowed numbers
       if (!isAllowed(id, from)) {
-        const paymentLink = process.env[`ACCOUNT_${id}_PAYMENT_LINK`] || process.env.PAYMENT_LINK || null;
-        const blocked = paymentLink
-          ? `Hi! This is a paid service. Subscribe here to get access:\n${paymentLink}`
-          : `Hi! This is a paid service. Please contact us to get access.`;
+        const primary = paymentLink || paymentLinkMonthly;
+        let blocked = 'Hi! This is a paid service. Subscribe here to get access:';
+        if (paymentLinkMonthly) blocked += `\n\n📅 Monthly: ${paymentLinkMonthly}`;
+        if (paymentLink) blocked += `\n\n⭐ Annual (best value): ${paymentLink}`;
+        if (!primary) blocked = 'Hi! This is a paid service. Please contact us to get access.';
         await sock.sendMessage(from, { text: blocked }, { quoted: msg });
         console.log(`[${id}] Blocked non-subscriber: ${from}`);
         continue;
