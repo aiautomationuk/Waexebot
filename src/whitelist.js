@@ -98,4 +98,21 @@ function clearCode(accountId, phone) {
   }
 }
 
-module.exports = { isAllowed, addNumber, removeNumber, enableWhitelist, listNumbers, normalise, findByCode, clearCode };
+// Get a subscriber's entry
+function getEntry(accountId, jid) {
+  const data = load();
+  const number = jidToNumber(jid);
+  return data[accountId]?.[number] || null;
+}
+
+// Clear the welcomePending flag after sending
+function clearWelcomePending(accountId, phone) {
+  const data = load();
+  const number = normalise(phone);
+  if (data[accountId]?.[number]) {
+    delete data[accountId][number].welcomePending;
+    save(data);
+  }
+}
+
+module.exports = { isAllowed, addNumber, removeNumber, enableWhitelist, listNumbers, normalise, findByCode, clearCode, getEntry, clearWelcomePending };

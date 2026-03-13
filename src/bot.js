@@ -9,7 +9,7 @@ const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 const { getReply } = require('./assistant');
-const { isAllowed, addNumber, normalise, findByCode, clearCode } = require('./whitelist');
+const { isAllowed, addNumber, normalise, findByCode, clearCode, getEntry, clearWelcomePending } = require('./whitelist');
 
 async function startBot(account) {
   const { id, instructions, model, apiKey, paymentLink, paymentLinkMonthly } = account;
@@ -159,6 +159,16 @@ async function startBot(account) {
         await sock.sendMessage(from, { text: blocked }, { quoted: msg });
         console.log(`[${id}] Blocked non-subscriber: ${from} (resolved: ${resolvedJid})`);
         continue;
+      }
+
+      // Send welcome message on their first inbound message if pending
+      const entry = getEntry(id, resolvedJid);
+      if (entry?.welcomePending) {
+        const code = entry.verificationCode;
+        const welcomeText = `¡Hola! 👋 Welcome to Spanish-Teacher.com!\n\nYour free trial is now active. I'm your AI Spanish teacher — reply to this message to start your first lesson! 🇪🇸\n\nYou can ask me anything: grammar, vocabulary, conversation practice — I'm here to help.${code ? `\n\n🔑 Your access code: *${code}*\nKeep this safe — you may need it to verify your account on first use.` : ''}`;
+        await sock.sendMessage(from, { text: welcomeText });
+        clearWelcomePending(id, resolvedJid.split('@')[0]);
+        console.log(`[${id}] Sent pending welcome to ${from}`);
       }
 
       try {

@@ -431,11 +431,9 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
       email: session.customer_details?.email,
       name: session.customer_details?.name,
       verificationCode,
+      welcomePending: true,
     });
-    console.log(`[Stripe] ✓ Payment received — added ${normalisedPhone} to ${accountId} (code: ${verificationCode})`);
-    sendWelcomeMessage(accountId, rawPhone,
-      `¡Hola! 👋 Welcome to Spanish-Teacher.com!\n\nYour free trial is now active. I'm your AI Spanish teacher — reply to this message to start your first lesson! 🇪🇸\n\nYou can ask me anything: grammar, vocabulary, conversation practice — I'm here to help.\n\n🔑 Your access code: *${verificationCode}*\nKeep this safe — you may need it to verify your account on first use.`
-    );
+    console.log(`[Stripe] ✓ Payment received — added ${normalisedPhone} to ${accountId} (code: ${verificationCode}) — welcome pending first message`);
   }
 
   if (
