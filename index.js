@@ -363,23 +363,31 @@ app.delete('/admin/subscribers', express.json(), (req, res) => {
 // Stripe needs the raw body to verify the signature — must be before express.json()
 const { addNumber, removeNumber, normalise } = require('./src/whitelist');
 
-function sendWelcomeMessage(accountId, phone, text) {
-  const sock = global.botSocks?.[accountId];
-  if (!sock) {
-    console.warn(`[Stripe] Cannot send welcome — no active connection for ${accountId}`);
-    return;
+// ── Public endpoint: return verification code for a Stripe session ─────────────
+// Called by the success page using the session ID from the redirect URL.
+// No auth needed — session IDs are unguessable Stripe-generated strings.
+const { listNumbers } = require('./src/whitelist');
+app.get('/api/code', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://spanish-teacher.com');
+  const { sid } = req.query;
+  if (!sid) return res.status(400).json({ error: 'sid required' });
+
+  const all = listNumbers ? null : null; // use raw load below
+  const fs = require('fs');
+  const path = require('path');
+  const dataFile = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'allowed.json');
+  let data = {};
+  try { data = JSON.parse(fs.readFileSync(dataFile, 'utf8')); } catch {}
+
+  for (const [, subscribers] of Object.entries(data)) {
+    for (const [, meta] of Object.entries(subscribers)) {
+      if (meta.stripeSessionId === sid && meta.verificationCode) {
+        return res.json({ code: meta.verificationCode, name: meta.name || null });
+      }
+    }
   }
-  let digits = normalise(phone);
-  if (!digits) return;
-  // Convert UK local format (07xxx) to international (447xxx)
-  if (digits.startsWith('0')) digits = '44' + digits.slice(1);
-  const jid = `${digits}@s.whatsapp.net`;
-  sock.sendMessage(jid, { text }).then(() => {
-    console.log(`[Stripe] Welcome message sent to ${jid}`);
-  }).catch(err => {
-    console.error('[Stripe] Welcome message failed:', err.message);
-  });
-}
+  res.status(404).json({ error: 'not found' });
+});
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -431,45 +439,13 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
 
     addNumber(accountId, normalisedPhone, {
       stripeCustomerId: session.customer,
+      stripeSessionId: session.id,
       email: customerEmail,
       name: customerName,
       verificationCode,
       welcomePending: true,
     });
-    console.log(`[Stripe] ✓ Payment received — added ${normalisedPhone} to ${accountId} (code: ${verificationCode}) — welcome pending first message`);
-
-    // Send access code via email
-    if (customerEmail && process.env.RESEND_API_KEY) {
-      fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'Spanish Teacher <hola@spanish-teacher.com>',
-          to: customerEmail,
-          subject: '🇪🇸 Your Spanish Teacher Access Code',
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-              <h2 style="color:#4f46e5">¡Bienvenido, ${customerName || 'amigo'}! 🎉</h2>
-              <p>Your subscription is active. To start chatting with your AI Spanish teacher on WhatsApp, message us at <strong>+44 7795 822278</strong>.</p>
-              <p>If WhatsApp asks you to verify your account, use this one-time access code:</p>
-              <div style="background:#f3f4f6;border-radius:8px;padding:16px 24px;text-align:center;margin:24px 0">
-                <span style="font-size:32px;font-weight:bold;letter-spacing:6px;color:#111827">${verificationCode}</span>
-              </div>
-              <p style="color:#6b7280;font-size:14px">This code is for your use only — please keep it private.</p>
-              <p style="color:#6b7280;font-size:14px">Questions? Reply to this email or contact us at hola@spanish-teacher.com</p>
-            </div>
-          `,
-        }),
-      })
-        .then(r => r.json())
-        .then(data => console.log(`[Stripe] Access code email sent to ${customerEmail}:`, data.id || data.error))
-        .catch(err => console.error('[Stripe] Email send failed:', err.message));
-    } else if (!process.env.RESEND_API_KEY) {
-      console.warn('[Stripe] RESEND_API_KEY not set — skipping access code email');
-    }
+    console.log(`[Stripe] ✓ Payment received — added ${normalisedPhone} to ${accountId} (code: ${verificationCode})`);
   }
 
   if (
