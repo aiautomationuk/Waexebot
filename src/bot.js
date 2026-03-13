@@ -45,6 +45,7 @@ async function startBot(account) {
     }
 
     if (connection === 'close') {
+      if (global.botSocks) delete global.botSocks[id];
       const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
       if (global.botAccounts?.[id]) {
@@ -61,6 +62,8 @@ async function startBot(account) {
     }
 
     if (connection === 'open') {
+      global.botSocks = global.botSocks || {};
+      global.botSocks[id] = sock;
       if (global.botAccounts?.[id]) {
         global.botAccounts[id].qr = null;
         global.botAccounts[id].status = 'connected';

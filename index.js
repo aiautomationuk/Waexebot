@@ -340,7 +340,23 @@ app.delete('/admin/subscribers', express.json(), (req, res) => {
 
 // ── Stripe webhook ────────────────────────────────────────────────────────────
 // Stripe needs the raw body to verify the signature — must be before express.json()
-const { addNumber, removeNumber } = require('./src/whitelist');
+const { addNumber, removeNumber, normalise } = require('./src/whitelist');
+
+function sendWelcomeMessage(accountId, phone, text) {
+  const sock = global.botSocks?.[accountId];
+  if (!sock) {
+    console.warn(`[Stripe] Cannot send welcome — no active connection for ${accountId}`);
+    return;
+  }
+  const digits = normalise(phone);
+  if (!digits) return;
+  const jid = `${digits}@s.whatsapp.net`;
+  sock.sendMessage(jid, { text }).then(() => {
+    console.log(`[Stripe] Welcome message sent to ${jid}`);
+  }).catch(err => {
+    console.error('[Stripe] Welcome message failed:', err.message);
+  });
+}
 
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -386,6 +402,9 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
       name: session.customer_details?.name,
     });
     console.log(`[Stripe] ✓ Payment received — added ${rawPhone} to ${accountId}`);
+    sendWelcomeMessage(accountId, rawPhone,
+      '¡Hola! 👋 Thanks for subscribing. You\'re all set — send me a message to start learning Spanish with Señor Bot! 🇪🇸'
+    );
   }
 
   if (
