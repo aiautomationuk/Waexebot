@@ -426,14 +426,50 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
     // Generate a unique one-time access code for LID verification
     const verificationCode = require('crypto').randomBytes(3).toString('hex').toUpperCase();
 
+    const customerEmail = session.customer_details?.email;
+    const customerName = session.customer_details?.name;
+
     addNumber(accountId, normalisedPhone, {
       stripeCustomerId: session.customer,
-      email: session.customer_details?.email,
-      name: session.customer_details?.name,
+      email: customerEmail,
+      name: customerName,
       verificationCode,
       welcomePending: true,
     });
     console.log(`[Stripe] ✓ Payment received — added ${normalisedPhone} to ${accountId} (code: ${verificationCode}) — welcome pending first message`);
+
+    // Send access code via email
+    if (customerEmail && process.env.RESEND_API_KEY) {
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Spanish Teacher <hola@spanish-teacher.com>',
+          to: customerEmail,
+          subject: '🇪🇸 Your Spanish Teacher Access Code',
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+              <h2 style="color:#4f46e5">¡Bienvenido, ${customerName || 'amigo'}! 🎉</h2>
+              <p>Your subscription is active. To start chatting with your AI Spanish teacher on WhatsApp, message us at <strong>+44 7795 822278</strong>.</p>
+              <p>If WhatsApp asks you to verify your account, use this one-time access code:</p>
+              <div style="background:#f3f4f6;border-radius:8px;padding:16px 24px;text-align:center;margin:24px 0">
+                <span style="font-size:32px;font-weight:bold;letter-spacing:6px;color:#111827">${verificationCode}</span>
+              </div>
+              <p style="color:#6b7280;font-size:14px">This code is for your use only — please keep it private.</p>
+              <p style="color:#6b7280;font-size:14px">Questions? Reply to this email or contact us at hola@spanish-teacher.com</p>
+            </div>
+          `,
+        }),
+      })
+        .then(r => r.json())
+        .then(data => console.log(`[Stripe] Access code email sent to ${customerEmail}:`, data.id || data.error))
+        .catch(err => console.error('[Stripe] Email send failed:', err.message));
+    } else if (!process.env.RESEND_API_KEY) {
+      console.warn('[Stripe] RESEND_API_KEY not set — skipping access code email');
+    }
   }
 
   if (
