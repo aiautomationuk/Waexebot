@@ -479,21 +479,40 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), (req, res
     let normalisedPhone = normalise(rawPhone);
     if (normalisedPhone.startsWith('0')) normalisedPhone = '44' + normalisedPhone.slice(1);
 
-    // Generate a unique one-time access code for LID verification
-    const verificationCode = require('crypto').randomBytes(3).toString('hex').toUpperCase();
-
     const customerEmail = session.customer_details?.email;
     const customerName = session.customer_details?.name;
 
-    addNumber(accountId, normalisedPhone, {
-      stripeCustomerId: session.customer,
-      stripeSessionId: session.id,
-      email: customerEmail,
-      name: customerName,
-      verificationCode,
-      welcomePending: true,
-    });
-    console.log(`[Stripe] ✓ Payment received — added ${normalisedPhone} to ${accountId} (code: ${verificationCode})`);
+    // Check if already added (e.g. by /api/code fallback before webhook fired)
+    const fs = require('fs');
+    const pathMod = require('path');
+    const dataFile = pathMod.join(process.env.DATA_DIR || pathMod.join(__dirname, 'data'), 'allowed.json');
+    let existing = {};
+    try { existing = JSON.parse(fs.readFileSync(dataFile, 'utf8')); } catch {}
+    const alreadyAdded = existing[accountId]?.[normalisedPhone];
+
+    if (alreadyAdded) {
+      // Already in whitelist — just update Stripe metadata without changing the code
+      addNumber(accountId, normalisedPhone, {
+        ...alreadyAdded,
+        stripeCustomerId: session.customer,
+        stripeSessionId: session.id,
+        email: customerEmail,
+        name: customerName,
+      });
+      console.log(`[Stripe] ✓ Payment confirmed — updated metadata for ${normalisedPhone} (code unchanged: ${alreadyAdded.verificationCode})`);
+    } else {
+      // New subscriber — generate a fresh code
+      const verificationCode = require('crypto').randomBytes(3).toString('hex').toUpperCase();
+      addNumber(accountId, normalisedPhone, {
+        stripeCustomerId: session.customer,
+        stripeSessionId: session.id,
+        email: customerEmail,
+        name: customerName,
+        verificationCode,
+        welcomePending: true,
+      });
+      console.log(`[Stripe] ✓ Payment received — added ${normalisedPhone} to ${accountId} (code: ${verificationCode})`);
+    }
   }
 
   if (
