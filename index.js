@@ -368,7 +368,7 @@ const { addNumber, removeNumber, normalise } = require('./src/whitelist');
 // No auth needed — session IDs are unguessable Stripe-generated strings.
 const { listNumbers } = require('./src/whitelist');
 app.get('/api/code', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://spanish-teacher.com');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   const { sid } = req.query;
   if (!sid) return res.status(400).json({ error: 'sid required' });
 
